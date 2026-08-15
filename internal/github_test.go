@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -55,14 +56,18 @@ func TestLatestReleaseTimesOutOnSilentPeer(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = ln.Close() })
+	// Keep the accepted connection silent past the client deadline.
+	// Closing or reading one request byte lets LatestRelease fail with
+	// EOF/reset before HTTPClient.Timeout fires.
+	keepOpen := make(chan struct{})
+	t.Cleanup(func() { close(keepOpen) })
 	go func() {
 		conn, acceptErr := ln.Accept()
 		if acceptErr != nil {
 			return
 		}
-		defer conn.Close()
-		buf := make([]byte, 1)
-		_, _ = conn.Read(buf)
+		defer func() { _ = conn.Close() }()
+		<-keepOpen
 	}()
 
 	oldClient := HTTPClient
@@ -77,5 +82,9 @@ func TestLatestReleaseTimesOutOnSilentPeer(t *testing.T) {
 	_, err = LatestRelease("openclaw/gogcli")
 	if err == nil {
 		t.Fatal("expected timeout error")
+	}
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) || !urlErr.Timeout() {
+		t.Fatalf("expected timeout-specific url.Error, got %v", err)
 	}
 }
