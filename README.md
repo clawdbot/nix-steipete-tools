@@ -115,6 +115,7 @@ check pull embedding/reranking models; model prewarming belongs in nix-openclaw.
 
 | Workflow | Schedule | What it does |
 |----------|----------|--------------|
+| **CI** | Pull requests and pushes to main | Checks Go formatting, vets, tests with the race detector, and builds the maintenance commands |
 | **sync-skills** | Every 30 min | Pulls latest skills from openclaw main |
 | **update-tools** | Every 10 min | Checks for new tool releases |
 | **Garnix** | On push | Builds all packages via `checks.*` (darwin + linux) |
